@@ -2,7 +2,8 @@ import requests
 from cv2 import cv2
 import numpy as np
 
-url = "http://192.168.1.3:8080/shot.jpg"
+url = "http://192.168.43.116:8080/shot.jpg"
+
 
 while True:
     imgRes= requests.get(url)

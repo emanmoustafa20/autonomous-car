@@ -4,6 +4,7 @@ import scipy.ndimage as ndi
 import matplotlib.pyplot as plt
 from PIL import Image
 import time
+import requests
 
 
 
@@ -38,9 +39,9 @@ def showPlottedImage(Gray_image):
 def houghline_transform(img): 
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     Gray_scaled_image=Gray_image(hsv)
-    filtered_image=region_of_interest(img,Gray_scaled_image)
+    #filtered_image=region_of_interest(img,Gray_scaled_image)
     #cv2.imshow("IMAGE",img)
-    lines = cv2.HoughLinesP(filtered_image, 1, np.pi/180, 50, maxLineGap=100)
+    lines = cv2.HoughLinesP(Gray_scaled_image, 1, np.pi/180, 50, maxLineGap=100)
     print(lines)
 #there is an additional variable called maxlinegap which fills the gaps if exist in the lines
     for line in lines:
@@ -51,9 +52,15 @@ def houghline_transform(img):
         cv2.line(img,(x1,y1),(x2,y2),(255,0,0),6) #draws a green line with a thickness equal to 3
          
 
+    cv2.namedWindow("IMAGE",cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("IMAGE",200,200)
     cv2.imshow("IMAGE",img)
-    cv2.imshow("Filtered_image",filtered_image)
+    #cv2.imshow("Filtered_image",filtered_image)
+
+    cv2.namedWindow("Gray_scale_with_lines",cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Gray_scale_with_lines",200,200)
     cv2.imshow("Gray_scale_with_lines",Gray_scaled_image)
+
     cv2.waitKey(1)
 
 
@@ -67,15 +74,30 @@ img = cv2.imread("image1.jpeg")
 #houghline_transform(img)
 #showImage(hsv,Gray_scaled_image) 
 #showPlottedImage(Gray_scaled_image)
-
+'''
 ##Video stuff
 cap=cv2.VideoCapture("test.mp4")
-'''
+
 ret, frame = cap.read()
 #cv2.imshow('Frame',frame)
 houghline_transform(frame)
-'''
+
 while (cap.isOpened()):
     _,frame=cap.read()
     houghline_transform(frame)
     time.sleep(1)
+'''
+
+
+#ip_webcam
+url = "http://192.168.43.116:8080/shot.jpg"
+cv2.namedWindow("ipcam",cv2.WINDOW_NORMAL)
+cv2.resizeWindow("ipcam",200,200)
+while True:
+    imgRes= requests.get(url)
+    imgArray= np.array(bytearray(imgRes.content),dtype=np.uint8)
+    img =cv2.imdecode(imgArray,-1)
+    houghline_transform(img)
+    cv2.imshow("ipcam",img)
+    if cv2.waitKey(1)==27:
+         break 
