@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 from PIL import Image
 import time
 import requests
+import urllib.request
+
+from firebase import firebase
+firebase=firebase.FirebaseApplication('https://carcontroller-76535.firebaseio.com/',None)
 
 
 
@@ -19,85 +23,187 @@ def Gray_image(image):
    return edges
    
 def region_of_interest(image,Gray):
-    #height,width,channels=image.shape
+    height,width=Gray.shape
+    print(height,width)
     mask=np.zeros_like(Gray)
-    cv2.rectangle(mask,(0,240),(600,350),(255,255,255),-1)
-    masked_image=cv2.bitwise_and(Gray,mask)
+    cv2.rectangle(mask,(60,50),(width-100,height),(255,255,255),-1)
+    masked_image=cv2.bitwise_and(Gray,mask) 
+    
     #cv2.imshow("mask",masked_image)
     #cv2.waitKey()
     return masked_image
-#shows the image using CV2
-def showImage(Gray_image,Normal_image):
-    cv2.imshow("edges",Gray_image)
-    cv2.imshow("image",Normal_image)
-    cv2.waitKey()
+
+
+
+def showImage(image_lines,gray_lines,filter):     
+    #with_objects=Countour_detection(img,Gray_scaled_image)
+    cv2.namedWindow("image_with_lines",cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("image_with_lines",200,200)
+    cv2.imshow("image_with_lines",image_lines)
+    cv2.namedWindow("Filtered_image",cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Filtered_image",200,200)
+    cv2.imshow("Filtered_image",filter)
+    cv2.namedWindow("Gray_scale_with_lines",cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("Gray_scale_with_lines",200,200)
+    cv2.imshow("Gray_scale_with_lines",gray_lines)
+
+    #cv2.imshow("with_objects",with_objects)
+    cv2.waitKey(1)
+    
+
 
 def showPlottedImage(Gray_image):
     plt.imshow(Gray_image)
     plt.show()
 
+def Countour_detection(image,gray_image): 
+    ret,thresh = cv2.threshold(gray_image,127,255,0) 
+#calculate the contours from binary image
+    im,contours,hierarchy = cv2.findContours(thresh,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE) 
+    with_contours = cv2.drawContours(image,contours,-1,(0,255,0),3) 
+    #plt.imshow(with_contours)
+    return image
+
 def houghline_transform(img): 
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     Gray_scaled_image=Gray_image(hsv)
-    #filtered_image=region_of_interest(img,Gray_scaled_image)
-    #cv2.imshow("IMAGE",img)
-    lines = cv2.HoughLinesP(Gray_scaled_image, 1, np.pi/180, 50, maxLineGap=100)
-    print(lines)
-#there is an additional variable called maxlinegap which fills the gaps if exist in the lines
+    filtered_image=region_of_interest(img,Gray_scaled_image)
+    lines = cv2.HoughLinesP(Gray_scaled_image, 1, np.pi/180, 50)
+
     for line in lines:
      #lines is an array of arrays, in which every array contains a line starting and ending points; x1,y1...etc
         x1,y1,x2,y2 =line[0]
     #accordingly x1,y1... are arrays of the starting and ending points of the lines
         cv2.line(Gray_scaled_image,(x1,y1),(x2,y2),(255,255,255),6) #draws a green line with a thickness equal to 3
         cv2.line(img,(x1,y1),(x2,y2),(255,0,0),6) #draws a green line with a thickness equal to 3
-         
-
-    cv2.namedWindow("IMAGE",cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("IMAGE",200,200)
-    cv2.imshow("IMAGE",img)
-    #cv2.imshow("Filtered_image",filtered_image)
-
-    cv2.namedWindow("Gray_scale_with_lines",cv2.WINDOW_NORMAL)
-    cv2.resizeWindow("Gray_scale_with_lines",200,200)
-    cv2.imshow("Gray_scale_with_lines",Gray_scaled_image)
-
-    cv2.waitKey(1)
+    
+    showImage(img,Gray_scaled_image,filtered_image)
 
 
+    #showPlottedImage(Gray_scaled_image)
+    return lines
+   
+    #showPlottedImage(Gray_scaled_image)
 
-img = cv2.imread("image1.jpeg")
-#Gray_scaled_image=Gray_image(img)
-#new_Gray_image=np.copy(Gray_scaled_image)
+
+#make coordinates function, takes the slopes and return the coor 
+def make_points(frame, line):
+    height, width, _ = frame.shape
+    slope, intercept = line
+    y1 = height  # bottom of the frame
+    y2 = int(y1 * 1 / 2)  # make points from middle of the frame down
+
+    # bound the coordinates within the frame
+    x1 = max(-width, min(2 * width, int((y1 - intercept) / slope)))
+    x2 = max(-width, min(2 * width, int((y2 - intercept) / slope)))
+    return [[x1, y1, x2, y2]]
+
+
+def average_slope_intercept(frame, line_segments):
+    """
+    This function combines line segments into one or two lane lines
+    If all line slopes are < 0: then we only have detected left lane
+    If all line slopes are > 0: then we only have detected right lane
+    """
+    lane_lines = []
+    if line_segments is None:
+        print('No line_segment segments detected')
+        return lane_lines
+
+    height, width, _ = frame.shape
+    left_fit = []
+    right_fit = []
+
+    boundary = 1/3
+    left_region_boundary = width * (1 - boundary)  # left lane line segment should be on left 2/3 of the screen
+    right_region_boundary = width * boundary # right lane line segment should be on left 2/3 of the screen
+
+    for line_segment in line_segments:
+        for x1, y1, x2, y2 in line_segment:
+            if x1 == x2:
+                continue
+            fit = np.polyfit((x1, x2), (y1, y2), 1)
+            slope = fit[0]
+            intercept = fit[1]
+            if slope < 0:
+                if x1 < left_region_boundary and x2 < left_region_boundary:
+                    left_fit.append((slope, intercept))
+            else:
+                if x1 > right_region_boundary and x2 > right_region_boundary:
+                    right_fit.append((slope, intercept))
+            if left_fit and right_fit:
+                control=firebase.put('SteeringWheel',str('forward'), 2 )
+                control=firebase.put('SteeringWheel',str('left'), 2 )
+                control=firebase.put('SteeringWheel',str('reverse'), 2 )
+                control=firebase.put('SteeringWheel',str('right'), 2 )
+                print('both lines')
+            elif left_fit:
+                control=firebase.put('SteeringWheel',str('forward'), 2 )
+                control=firebase.put('SteeringWheel',str('left'), 2 )
+                control=firebase.put('SteeringWheel',str('right'), 2 )
+                control=firebase.put('SteeringWheel',str('reverse'), 2 )
+                print('left line')
+            elif right_fit:
+                control=firebase.put('SteeringWheel',str('left'), 2 )
+                control=firebase.put('SteeringWheel',str('forward'), 2 )
+                control=firebase.put('SteeringWheel',str('right'), 2 )
+                control=firebase.put('SteeringWheel',str('reverse'), 2 )
+                print('right line')
+
+    left_fit_average = np.average(left_fit, axis=0)
+    if len(left_fit) > 0:
+        lane_lines.append(make_points(frame, left_fit_average))
+
+    right_fit_average = np.average(right_fit, axis=0)
+    if len(right_fit) > 0:
+        lane_lines.append(make_points(frame, right_fit_average))
+
+
+    #for line in lane_lines:
+     #lines is an array of arrays, in which every array contains a line starting and ending points; x1,y1...etc
+       # x1,y1,x2,y2 =line[0]
+    #accordingly x1,y1... are arrays of the starting and ending points of the lines
+        #cv2.line(frame,(x1,y1),(x2,y2),(255,255,255),3)
+    #return lane_lines
+    #cv2.imshow("AVG_LINE",frame)
+    #cv2.waitKey(1)
+
+#img = cv2.imread("image2.jpeg")
+
+#new_image=np.copy(img)
 
 
 ##FUNCTION##
-#houghline_transform(img)
+#LINES=houghline_transform(img)
+#average_slope_intercept(new_image,LINES)
 #showImage(hsv,Gray_scaled_image) 
 #showPlottedImage(Gray_scaled_image)
-'''
+'''''
 ##Video stuff
-cap=cv2.VideoCapture("test.mp4")
-
-ret, frame = cap.read()
-#cv2.imshow('Frame',frame)
-houghline_transform(frame)
+cap=cv2.VideoCapture("test2[1,01.mp4")
 
 while (cap.isOpened()):
-    _,frame=cap.read()
-    houghline_transform(frame)
-    time.sleep(1)
+    _,frame1=cap.read()
+    new_frame=np.copy(frame1)
+    LINES=houghline_transform(frame1)
+    #average_slope_intercept(new_frame,LINES)
+    time.sleep(.01)
+
 '''
-
-
 #ip_webcam
-url = "http://192.168.43.116:8080/shot.jpg"
+url = "http://172.28.129.255:8080/shot.jpg"
 cv2.namedWindow("ipcam",cv2.WINDOW_NORMAL)
 cv2.resizeWindow("ipcam",200,200)
+
 while True:
-    imgRes= requests.get(url)
-    imgArray= np.array(bytearray(imgRes.content),dtype=np.uint8)
+    imgRes=urllib.request.urlopen(url)
+    imgArray= np.array(bytearray(imgRes.read()),dtype=np.uint8)
     img =cv2.imdecode(imgArray,-1)
-    houghline_transform(img)
     cv2.imshow("ipcam",img)
+    LINES=houghline_transform(img)
+    img2=np.copy(img)
+    average_slope_intercept(img2,LINES)
+
     if cv2.waitKey(1)==27:
          break 
+
