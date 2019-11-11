@@ -98,7 +98,7 @@ def make_points(frame, line):
     x2 = max(-width, min(2 * width, int((y2 - intercept) / slope)))
     return [[x1, y1, x2, y2]]
 
-
+'''''
 def average_slope_intercept(frame, line_segments):
     """
     This function combines line segments into one or two lane lines
@@ -167,7 +167,7 @@ def average_slope_intercept(frame, line_segments):
     #return lane_lines
     #cv2.imshow("AVG_LINE",frame)
     #cv2.waitKey(1)
-
+'''
 #img = cv2.imread("image2.jpeg")
 
 #new_image=np.copy(img)
@@ -191,7 +191,7 @@ while (cap.isOpened()):
 
 '''
 #ip_webcam
-url = "http://172.28.129.255:8080/shot.jpg"
+url = "http://192.168.1.6:8080/shot.jpg"
 cv2.namedWindow("ipcam",cv2.WINDOW_NORMAL)
 cv2.resizeWindow("ipcam",200,200)
 
@@ -202,7 +202,7 @@ while True:
     cv2.imshow("ipcam",img)
     LINES=houghline_transform(img)
     img2=np.copy(img)
-    average_slope_intercept(img2,LINES)
+    #average_slope_intercept(img2,LINES)
 
     if cv2.waitKey(1)==27:
          break 
