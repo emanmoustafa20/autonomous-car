@@ -7,7 +7,11 @@ import time
 import requests
 import _thread
 import urllib.request
+from threading import Thread
+import logging
+import queue
 
+result=queue.Queue()
 from firebase import firebase
 firebase=firebase.FirebaseApplication('https://carcontroller-76535.firebaseio.com/',None)
 
@@ -63,17 +67,17 @@ def houghline_transform(img):
     Gray_scaled_image=Gray_image(hsv)
     filtered_image=region_of_interest(img,Gray_scaled_image)
     lines = cv2.HoughLinesP(Gray_scaled_image, 1, np.pi/180, 50)
-
+    #print(lines)
     for line in lines:
      #lines is an array of arrays, in which every array contains a line starting and ending points; x1,y1...etc
         x1,y1,x2,y2 =line[0]
     #accordingly x1,y1... are arrays of the starting and ending points of the lines
         cv2.line(Gray_scaled_image,(x1,y1),(x2,y2),(255,255,255),6) #draws a green line with a thickness equal to 3
         cv2.line(img,(x1,y1),(x2,y2),(255,0,0),6) #draws a green line with a thickness equal to 3
+    #with_objects=Countour_detection(img,Gray_scaled_image)
+    #showImage(img,Gray_scaled_image,filtered_image)
 
-    showImage(img,Gray_scaled_image,filtered_image)
-
-
+    result.put(lines)
     #showPlottedImage(Gray_scaled_image)
     return lines
 
@@ -127,23 +131,23 @@ def average_slope_intercept(frame, line_segments):
                     right_fit.append((slope, intercept))
             if left_fit and right_fit:
                 control=firebase.put('SteeringWheel',str('forward'), 2 )
-                control=firebase.put('SteeringWheel',str('left'), 2 )
-                control=firebase.put('SteeringWheel',str('reverse'), 2 )
-                control=firebase.put('SteeringWheel',str('right'), 2 )
+                control=firebase.put('SteeringWheel',str('left'), 0 )
+                control=firebase.put('SteeringWheel',str('reverse'), 0 )
+                control=firebase.put('SteeringWheel',str('right'), 0 )
                 print('both lines')
             elif left_fit:
                 control=firebase.put('SteeringWheel',str('forward'), 2 )
-                control=firebase.put('SteeringWheel',str('left'), 2 )
+                control=firebase.put('SteeringWheel',str('left'), 0 )
                 control=firebase.put('SteeringWheel',str('right'), 2 )
-                control=firebase.put('SteeringWheel',str('reverse'), 2 )
+                control=firebase.put('SteeringWheel',str('reverse'), 0 )
                 print('left line')
             elif right_fit:
                 control=firebase.put('SteeringWheel',str('left'), 2 )
                 control=firebase.put('SteeringWheel',str('forward'), 2 )
-                control=firebase.put('SteeringWheel',str('right'), 2 )
-                control=firebase.put('SteeringWheel',str('reverse'), 2 )
+                control=firebase.put('SteeringWheel',str('right'),  0)
+                control=firebase.put('SteeringWheel',str('reverse'), 0 )
                 print('right line')
-
+    ''''
     left_fit_average = np.average(left_fit, axis=0)
     if len(left_fit) > 0:
         lane_lines.append(make_points(frame, left_fit_average))
@@ -151,7 +155,7 @@ def average_slope_intercept(frame, line_segments):
     right_fit_average = np.average(right_fit, axis=0)
     if len(right_fit) > 0:
         lane_lines.append(make_points(frame, right_fit_average))
-
+    '''''
 
     #for line in lane_lines:
      #lines is an array of arrays, in which every array contains a line starting and ending points; x1,y1...etc
@@ -159,6 +163,7 @@ def average_slope_intercept(frame, line_segments):
     #accordingly x1,y1... are arrays of the starting and ending points of the lines
         #cv2.line(frame,(x1,y1),(x2,y2),(255,255,255),3)
     #return lane_lines
+
     #cv2.imshow("AVG_LINE",frame)
     #cv2.waitKey(1)
 
@@ -166,7 +171,7 @@ def average_slope_intercept(frame, line_segments):
 
 def webCam ():
 
-     url = "http://192.168.1.6:8080/shot.jpg"
+     url = "http://172.28.131.139:8080/shot.jpg"
      cv2.namedWindow("ipcam",cv2.WINDOW_NORMAL)
      cv2.resizeWindow("ipcam",200,200)
 
@@ -175,11 +180,15 @@ def webCam ():
       imgArray= np.array(bytearray(imgRes.read()),dtype=np.uint8)
       img =cv2.imdecode(imgArray,-1)
       cv2.imshow("ipcam",img)
-      #LINES=_thread.start_new_thread( houghline_transform, (img, ) )
-      LINES=houghline_transform(img)
+      LINES=Thread(target= houghline_transform, args=(img,))
+      LINES.start()
+      #ret=LINES.join()
+      ret=result.get()
+      #print(ret)
+      #LINES=houghline_transform(img)
       img2=np.copy(img)
       #average_slope_intercept(img2,LINES)
-      _thread.start_new_thread( average_slope_intercept, (img2, LINES, ) )
+      _thread.start_new_thread( average_slope_intercept, (img2, ret, ) )
 
       if cv2.waitKey(1)==27:
           break
