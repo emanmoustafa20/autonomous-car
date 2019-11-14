@@ -1,11 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="4f768c30-0c86-4346-b254-2183c36c1173" name="Default Changelist" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/Project_Default.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/fasterVersion.py" beforeDir="false" afterPath="$PROJECT_DIR$/fasterVersion.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/houghline-transfom.py" beforeDir="false" afterPath="$PROJECT_DIR$/houghline-transfom.py" afterDir="false" />
-    </list>
+    <list default="true" id="4f768c30-0c86-4346-b254-2183c36c1173" name="Default Changelist" comment="" />
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
