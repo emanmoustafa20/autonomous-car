@@ -17,6 +17,13 @@ firebase=firebase.FirebaseApplication('https://carcontroller-76535.firebaseio.co
 
 
 
+def loop(ret,grayy,imageee,filteredd):
+   for line in ret:
+        x1,y1,x2,y2 =line[0]
+        cv2.line(imageee,(x1,y1),(x2,y2),(255,255,255),6) #draws a green line with a thickness equal to 3
+        cv2.line(grayy,(x1,y1),(x2,y2),(255,0,0),6)
+        cv2.line(filteredd,(x1,y1),(x2,y2),(255,0,0),6)
+
 def Gray_image(image):
   #getting the edges, by first converting the image to grayscale image
    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
@@ -29,7 +36,7 @@ def Gray_image(image):
 
 def region_of_interest(image,Gray):
     height,width=Gray.shape
-    print(height,width)
+    #print(height,width)
     mask=np.zeros_like(Gray)
     cv2.rectangle(mask,(60,50),(width-100,height),(255,255,255),-1)
     masked_image=cv2.bitwise_and(Gray,mask)
@@ -66,14 +73,16 @@ def houghline_transform(img):
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     Gray_scaled_image=Gray_image(hsv)
     filtered_image=region_of_interest(img,Gray_scaled_image)
-    lines = cv2.HoughLinesP(Gray_scaled_image, 1, np.pi/180, 50)
+    lines = cv2.HoughLinesP(filtered_image, 1, np.pi/180, 50)
+    Gray_scaled_image2=np.copy(Gray_scaled_image)
+    imgq=np.copy(img)
     #print(lines)
     for line in lines:
      #lines is an array of arrays, in which every array contains a line starting and ending points; x1,y1...etc
         x1,y1,x2,y2 =line[0]
     #accordingly x1,y1... are arrays of the starting and ending points of the lines
-        cv2.line(Gray_scaled_image,(x1,y1),(x2,y2),(255,255,255),6) #draws a green line with a thickness equal to 3
-        cv2.line(img,(x1,y1),(x2,y2),(255,0,0),6) #draws a green line with a thickness equal to 3
+        cv2.line(Gray_scaled_image2,(x1,y1),(x2,y2),(255,255,255),6) #draws a green line with a thickness equal to 3
+        cv2.line(imgq,(x1,y1),(x2,y2),(255,0,0),6) #draws a green line with a thickness equal to 3
     #with_objects=Countour_detection(img,Gray_scaled_image)
     #showImage(img,Gray_scaled_image,filtered_image)
 
@@ -127,27 +136,31 @@ def average_slope_intercept(frame, line_segments):
                 if x1 < left_region_boundary and x2 < left_region_boundary:
                     left_fit.append((slope, intercept))
             else:
-                if x1 > right_region_boundary and x2 > right_region_boundary:
+                if x1 > left_region_boundary and x2 > left_region_boundary:
                     right_fit.append((slope, intercept))
             if left_fit and right_fit:
                 control=firebase.put('SteeringWheel',str('forward'), 2 )
                 control=firebase.put('SteeringWheel',str('left'), 0 )
                 control=firebase.put('SteeringWheel',str('reverse'), 0 )
                 control=firebase.put('SteeringWheel',str('right'), 0 )
+                time.sleep(1)
                 print('both lines')
             elif left_fit:
-                control=firebase.put('SteeringWheel',str('forward'), 2 )
+                control=firebase.put('SteeringWheel',str('forward'), 0 )
                 control=firebase.put('SteeringWheel',str('left'), 0 )
                 control=firebase.put('SteeringWheel',str('right'), 2 )
                 control=firebase.put('SteeringWheel',str('reverse'), 0 )
+                time.sleep(1)
+
                 print('left line')
             elif right_fit:
                 control=firebase.put('SteeringWheel',str('left'), 2 )
-                control=firebase.put('SteeringWheel',str('forward'), 2 )
+                control=firebase.put('SteeringWheel',str('forward'), 0 )
                 control=firebase.put('SteeringWheel',str('right'),  0)
                 control=firebase.put('SteeringWheel',str('reverse'), 0 )
+                time.sleep(1)
+
                 print('right line')
-    ''''
     left_fit_average = np.average(left_fit, axis=0)
     if len(left_fit) > 0:
         lane_lines.append(make_points(frame, left_fit_average))
@@ -155,7 +168,7 @@ def average_slope_intercept(frame, line_segments):
     right_fit_average = np.average(right_fit, axis=0)
     if len(right_fit) > 0:
         lane_lines.append(make_points(frame, right_fit_average))
-    '''''
+
 
     #for line in lane_lines:
      #lines is an array of arrays, in which every array contains a line starting and ending points; x1,y1...etc
@@ -173,21 +186,44 @@ def webCam ():
 
      url = "http://172.28.131.139:8080/shot.jpg"
      cv2.namedWindow("ipcam",cv2.WINDOW_NORMAL)
-     cv2.resizeWindow("ipcam",200,200)
+     cv2.resizeWindow("ipcam",800,800)
 
      while True:
       imgRes=urllib.request.urlopen(url)
       imgArray= np.array(bytearray(imgRes.read()),dtype=np.uint8)
       img =cv2.imdecode(imgArray,-1)
       cv2.imshow("ipcam",img)
+      img3=np.copy(img)
+      img4=np.copy(img)
       LINES=Thread(target= houghline_transform, args=(img,))
       LINES.start()
       #ret=LINES.join()
       ret=result.get()
+      hsv = cv2.cvtColor(img3, cv2.COLOR_BGR2HSV)
+      Gray_scaled_image=Gray_image(hsv)
+      gray_copy=np.copy(Gray_scaled_image)
+      filtered_image2=region_of_interest(img4,gray_copy)
+
       #print(ret)
       #LINES=houghline_transform(img)
       img2=np.copy(img)
       #average_slope_intercept(img2,LINES)
+
+      #_thread.start_new_thread( loop, (ret,gray_copy,img4,filtered_image2 ) )
+      for line in ret:
+        x1,y1,x2,y2 =line[0]
+        cv2.line(img4,(x1,y1),(x2,y2),(255,255,255),6) #draws a green line with a thickness equal to 3
+        cv2.line(gray_copy,(x1,y1),(x2,y2),(255,0,0),6)
+        cv2.line(filtered_image2,(x1,y1),(x2,y2),(255,0,0),6)
+      cv2.namedWindow("Gray_scale_with_lines",cv2.WINDOW_NORMAL)
+      cv2.resizeWindow("Gray_scale_with_lines",800,800)
+      cv2.imshow("Gray_scale_with_lines",gray_copy)
+      cv2.namedWindow("Image_with_lines",cv2.WINDOW_NORMAL)
+      cv2.resizeWindow("Image_scale_with_lines", 800, 800)
+      cv2.imshow("Image_with_lines",img4)
+      cv2.namedWindow("filtered",cv2.WINDOW_NORMAL)
+      cv2.resizeWindow("filtered", 800, 800)
+      cv2.imshow("filtered",filtered_image2)
       _thread.start_new_thread( average_slope_intercept, (img2, ret, ) )
 
       if cv2.waitKey(1)==27:
